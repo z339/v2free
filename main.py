@@ -2,7 +2,11 @@ import requests
 import json
 import os
 
-requests.packages.urllib3.disable_warnings()
+# requests.packages.urllib3.disable_warnings()
+# 略过 SSL 验证
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+
 SCKEY = os.environ.get('SCKEY')
 TG_BOT_TOKEN = os.environ.get('TGBOT')
 TG_USER_ID = os.environ.get('TGUSERID')
