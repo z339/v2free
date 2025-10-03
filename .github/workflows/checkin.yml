@@ -39,7 +39,7 @@ jobs:
           SCKEY: ${{ secrets.SCKEY }}
           EMAIL: ${{ secrets.EMAIL }}
           PASSWORD: ${{ secrets.PASSWORD }}
-          BASE_URL: ${{ secrets.BASE_URL }}
+          BASE_URL: ${{ vars.BASE_URL }}
           TGBOT: ${{ secrets.TGBOT }}
           TGUSERID: ${{ secrets.TGUSERID }}
         run: |

@@ -11,6 +11,8 @@ https://xcao.top/post-278.html 水了个博文，操作更详细
 1. Fork此仓库
 2. 到`Settings`→`Secrets`→`Actions` 添加以下参数：
 
+BASE_URL 为Variables， 公开变量，请注意
+
 | 参数  | 是否必须  | 内容  | 示例  |
 | ------------ | ------------ | ------------ | ------------ |
 | EMAIL  | 是  | 注册机场所用邮箱  | a@example.com  |
