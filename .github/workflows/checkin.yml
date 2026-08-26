@@ -1,37 +1,70 @@
 name: "Airport Checkin"
 
+# 说明：GitHub Actions 不允许在 on.schedule.cron 里使用变量/表达式，
+# 所以采用「高频轮询 + 时间门控」模式：每 5 分钟跑一次，
+# 仅在到达变量 SCHEDULED 指定的北京时间时才真正执行签到。
 on:
   schedule:
-    # 每天北京时间 05:03 执行（UTC 21:03，前一日）
-    - cron: "3 21 * * *"
+    - cron: "*/5 * * * *"   # 每 5 分钟检查一次（UTC）
   workflow_dispatch:
 
 env:
+  # ★ 签到时间（北京时间 HHMM），改时间只需改这个变量 ★
+  # 推荐在仓库 Settings → Variables 中设置 SCHEDULED=0503，
+  # 未设置时回退到下面的默认值。
+  SCHEDULED: ${{ vars.SCHEDULED || '0503' }}
   RUN_ENV: 'prod'
 
+permissions:
+  contents: write   # 用于写入“今日已签到”标记，防止同一天重复运行
+
 jobs:
-  build:
+  checkin:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: 判断是否到签到时间
+        id: gate
+        run: |
+          python3 - <<'PY'
+          import datetime, os
+          now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
+          now_hm = now.strftime("%H%M")
+          today = now.strftime("%Y-%m-%d")
+          scheduled = os.environ["SCHEDULED"]
+          is_dispatch = os.environ.get("GITHUB_EVENT_NAME") == "workflow_dispatch"
+          try:
+              last = open(".signed_date").read().strip()
+          except FileNotFoundError:
+              last = ""
+          # 手动触发总是执行；定时触发需：今天还没签过 且 当前北京时间已到设定时刻
+          should = is_dispatch or (last != today and now_hm >= scheduled)
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"should_run={'true' if should else 'false'}\n")
+          print(f"now={now_hm} scheduled={scheduled} last_signed={last or '无'} should_run={should}")
+          PY
+
       - name: Set up Python
+        if: steps.gate.outputs.should_run == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: '3.13'
 
       - name: Random sleep
-        if: github.event_name == 'schedule'
+        if: steps.gate.outputs.should_run == 'true'
         run: sleep $(shuf -i 10-300 -n 1)
 
       - name: Install dependencies
+        if: steps.gate.outputs.should_run == 'true'
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
       - name: Run checkin
+        if: steps.gate.outputs.should_run == 'true'
         env:
           EMAIL: ${{ secrets.EMAIL }}
           PASSWORD: ${{ secrets.PASSWORD }}
@@ -41,3 +74,14 @@ jobs:
           TGUSERID: ${{ secrets.TGUSERID }}
         run: |
           python3 ./main.py
+
+      - name: 写入今日已签到标记
+        if: steps.gate.outputs.should_run == 'true'
+        run: |
+          TODAY=$(TZ='Asia/Shanghai' date +%Y-%m-%d)
+          echo "$TODAY" > .signed_date
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .signed_date
+          git commit -m "chore: 标记 $TODAY 已签到" || echo "无变化"
+          git push
