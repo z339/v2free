@@ -2,8 +2,8 @@ name: "Airport Checkin"
 
 on:
   schedule:
-    # 每天北京时间 08:00 执行（UTC 00:00）
-    - cron: "0 0 * * *"
+    # 每天北京时间 05:03 执行（UTC 21:03，前一日）
+    - cron: "3 21 * * *"
   workflow_dispatch:
 
 env:
