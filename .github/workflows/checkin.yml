@@ -9,10 +9,6 @@ on:
   workflow_dispatch:
 
 env:
-  # ★ 签到时间（北京时间 HHMM），改时间只需改这个变量 ★
-  # 推荐在仓库 Settings → Variables 中设置 SCHEDULED=0503，
-  # 未设置时回退到下面的默认值。
-  SCHEDULED: ${{ vars.SCHEDULED || '0503' }}
   RUN_ENV: 'prod'
 
 permissions:
@@ -28,13 +24,18 @@ jobs:
 
       - name: 判断是否到签到时间
         id: gate
+        env:
+          # 默认定时：北京时间 05:03。设置了仓库 Variables 中的 SCHEDULED 则用它，否则用默认。
+          SCHEDULED: ${{ vars.SCHEDULED || '0503' }}
         run: |
           python3 - <<'PY'
           import datetime, os
+          # 默认定时（北京时间 HHMM）。环境变量 SCHEDULED 有设置就用它，否则用默认 '0503'。
+          DEFAULT_SCHEDULED = "0503"
+          scheduled = os.environ.get("SCHEDULED") or DEFAULT_SCHEDULED
           now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8)))
           now_hm = now.strftime("%H%M")
           today = now.strftime("%Y-%m-%d")
-          scheduled = os.environ["SCHEDULED"]
           is_dispatch = os.environ.get("GITHUB_EVENT_NAME") == "workflow_dispatch"
           try:
               last = open(".signed_date").read().strip()
